@@ -1,5 +1,6 @@
 # Uncomment this to pass the first stage
 import socket
+import threading
 
 PORT = 4221
 BUFFER = 1024
@@ -21,47 +22,44 @@ def requests_userAgent(data):
 def make_response(line):
     return line.encode()
 
+def handler_req(client_socket,client_addr):
+    try:
+        with client_socket:
+            print(f"Connected to {client_addr}")
+            data = client_socket.recv(BUFFER)
+            path = requests_path(data)
+            if path == '/':
+                client_socket.send(make_response(f"HTTP/1.1 200 OK {CRLF + CRLF}"))
+            elif path.startswith('/echo/'):
+                message = path.split("/echo/")[1]
+                client_socket.send(make_response(f"HTTP/1.1 200 OK {CRLF}"))
+                client_socket.send(make_response(f"Content-Type: text/plain{CRLF}"))
+                client_socket.send(make_response(f"Content-Length: {len(message)} {CRLF}"))
+                client_socket.send(make_response(f"{CRLF}"))
+                client_socket.send(make_response(f"{message} {CRLF + CRLF}"))
+            elif path == '/user-agent':
+                message = requests_userAgent(data)
+                client_socket.send(make_response(f"HTTP/1.1 200 OK {CRLF}"))
+                client_socket.send(make_response(f"Content-Type: text/plain{CRLF}"))
+                client_socket.send(make_response(f"Content-Length: {len(message)} {CRLF}"))
+                client_socket.send(make_response(f"{CRLF}"))
+                client_socket.send(make_response(f"{message} {CRLF + CRLF}"))
+            else:
+                client_socket.send(make_response(f"HTTP/1.1 404 Not Found {CRLF + CRLF}"))
+            print(f"requests {path}")
+    except ConnectionError:
+        pass # nc probe
+
+    client_socket.close()
+
 def main():
-    # You can use print statements as follows for debugging, they'll be visible when running tests.
-    print("Logs from your program will appear here!")
-
-    # Uncomment this to pass the first stage
-
     print("Starting the server...")
-    server_socket = socket.create_server(("localhost", PORT), reuse_port=True)
-    # test for enable port
+    server_socket = socket.create_server(("localhost", 4221), reuse_port=True)
     print("Listen...")
-
+    #socket.create_connection(("localhost", PORT), timeout=5)
     while True:
-        socket.create_connection(("localhost", PORT), timeout=5)
-        server_socket.accept() # wait for client
-        client_socket, client_addr = server_socket.accept()
-        try:
-            with client_socket:
-                print(f"Connected to {client_addr}")
-                data = client_socket.recv(BUFFER)
-                path = requests_path(data)
-                if path == '/':
-                    client_socket.send(make_response(f"HTTP/1.1 200 OK {CRLF + CRLF}"))
-                elif path.startswith('/echo/'):
-                    message = path.split("/echo/")[1]
-                    client_socket.send(make_response(f"HTTP/1.1 200 OK {CRLF}"))
-                    client_socket.send(make_response(f"Content-Type: text/plain{CRLF}"))
-                    client_socket.send(make_response(f"Content-Length: {len(message)} {CRLF}"))
-                    client_socket.send(make_response(f"{CRLF}"))
-                    client_socket.send(make_response(f"{message} {CRLF + CRLF}"))
-                elif path == '/user-agent':
-                    message = requests_userAgent(data)
-                    client_socket.send(make_response(f"HTTP/1.1 200 OK {CRLF}"))
-                    client_socket.send(make_response(f"Content-Type: text/plain{CRLF}"))
-                    client_socket.send(make_response(f"Content-Length: {len(message)} {CRLF}"))
-                    client_socket.send(make_response(f"{CRLF}"))
-                    client_socket.send(make_response(f"{message} {CRLF + CRLF}"))
-                else:
-                    client_socket.send(make_response(f"HTTP/1.1 404 Not Found {CRLF + CRLF}"))
-                print(f"requests {path}")
-        except ConnectionError:
-            pass # nc probe
+        sock, addr = server_socket.accept()  # wait for client
+        threading.Thread(target=handler_req, args=(sock,addr,)).start()
 
 if __name__ == "__main__":
     main()
