@@ -11,6 +11,13 @@ def requests_path(data):
     path = first_line.split(" ")[1]
     return path
 
+def requests_userAgent(data):
+    decoded_data = data.decode()
+    first_line = decoded_data.split("\r\n")
+    for header in first_line:
+        if header.startswith("User-Agent:"):
+            return header.split(" ")[1]
+
 def make_response(line):
     return line.encode()
 
@@ -35,19 +42,24 @@ def main():
                 data = client_socket.recv(BUFFER)
                 path = requests_path(data)
                 if path == '/':
-                    print("requests /")
                     client_socket.send(make_response(f"HTTP/1.1 200 OK {CRLF + CRLF}"))
                 elif path.startswith('/echo/'):
-                    print("requests /echo/")
                     message = path.split("/echo/")[1]
                     client_socket.send(make_response(f"HTTP/1.1 200 OK {CRLF}"))
                     client_socket.send(make_response(f"Content-Type: text/plain{CRLF}"))
                     client_socket.send(make_response(f"Content-Length: {len(message)} {CRLF}"))
                     client_socket.send(make_response(f"{CRLF}"))
                     client_socket.send(make_response(f"{message} {CRLF + CRLF}"))
+                elif path == '/user-agent':
+                    message = requests_userAgent(data)
+                    client_socket.send(make_response(f"HTTP/1.1 200 OK {CRLF}"))
+                    client_socket.send(make_response(f"Content-Type: text/plain{CRLF}"))
+                    client_socket.send(make_response(f"Content-Length: {len(message)} {CRLF}"))
+                    client_socket.send(make_response(f"{CRLF}"))
+                    client_socket.send(make_response(f"{message} {CRLF + CRLF}"))
                 else:
-                    print(f"requests {path}")
                     client_socket.send(make_response(f"HTTP/1.1 404 Not Found {CRLF + CRLF}"))
+                print(f"requests {path}")
         except ConnectionError:
             pass # nc probe
 
