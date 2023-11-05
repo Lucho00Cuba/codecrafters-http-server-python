@@ -1,6 +1,9 @@
 # Uncomment this to pass the first stage
 import socket
 import threading
+import argparse
+import sys
+from pathlib import Path
 
 PORT = 4221
 BUFFER = 1024
@@ -22,7 +25,16 @@ def requests_userAgent(data):
 def make_response(line):
     return line.encode()
 
-def handler_req(client_socket,client_addr):
+def getFileContent(directory_path, file_path):
+    whole_path = Path(directory_path).joinpath(Path(file_path))
+    if whole_path.exists():
+        print("exists")
+        with open(whole_path, "r") as file:
+            file_contents = file.read()
+        return True, file_contents
+    return False, ""
+
+def handler_req(client_socket,client_addr, directory_path):
     try:
         with client_socket:
             print(f"Connected to {client_addr}")
@@ -44,6 +56,17 @@ def handler_req(client_socket,client_addr):
                 client_socket.send(make_response(f"Content-Length: {len(message)} {CRLF}"))
                 client_socket.send(make_response(f"{CRLF}"))
                 client_socket.send(make_response(f"{message} {CRLF + CRLF}"))
+            elif path.startswith('/files/'):
+                file_path = path.split("/files/")[1]
+                file_exists, content = getFileContent(directory_path, file_path)
+                if file_exists:
+                    client_socket.send(make_response(f"HTTP/1.1 200 OK {CRLF}"))
+                    client_socket.send(make_response(f"Content-Type: octet-stream {CRLF}"))
+                    client_socket.send(make_response(f"Content-Length: {len(content)} {CRLF}"))
+                    client_socket.send(make_response(f"{CRLF}"))
+                    client_socket.send(make_response(f"{content} {CRLF + CRLF}"))
+                else:
+                    client_socket.send(make_response(f"HTTP/1.1 404 Not Found {CRLF + CRLF}"))
             else:
                 client_socket.send(make_response(f"HTTP/1.1 404 Not Found {CRLF + CRLF}"))
             print(f"requests {path}")
@@ -53,13 +76,21 @@ def handler_req(client_socket,client_addr):
     client_socket.close()
 
 def main():
+
+    # cli
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--directory", help="the directory path")
+    args = parser.parse_args()
+    directory_path = args.directory or None
+
+    # server
     print("Starting the server...")
     server_socket = socket.create_server(("localhost", 4221), reuse_port=True)
     print("Listen...")
     #socket.create_connection(("localhost", PORT), timeout=5)
     while True:
         sock, addr = server_socket.accept()  # wait for client
-        threading.Thread(target=handler_req, args=(sock,addr,)).start()
+        threading.Thread(target=handler_req, args=(sock,addr,directory_path,)).start()
 
 if __name__ == "__main__":
     main()
