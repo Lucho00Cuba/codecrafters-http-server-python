@@ -5,7 +5,16 @@ PORT = 4221
 BUFFER = 1024
 CRLF = "\r\n"
 HEADERS_END = CRLF + CRLF
-HTTP_200 = "HTTP/1.1 200 OK" + HEADERS_END
+
+def requests_path(data):
+    decoded_data = data.decode()
+    first_line = decoded_data.split("\r\n")[0]
+    path = first_line.split(" ")[1]
+    return path
+
+def status_code(http_code, message):
+    return f"HTTP/1.1 {http_code} {message} {HEADERS_END}".encode()
+
 
 def main():
     # You can use print statements as follows for debugging, they'll be visible when running tests.
@@ -27,8 +36,13 @@ def main():
         data = b""
         chunk = client_socket.recv(BUFFER)
         data += chunk
-        response = HTTP_200.encode()
-        client_socket.send(response)
+
+        path = requests_path(data)
+
+        if path == '/':
+            client_socket.send(status_code('200', 'OK'))
+        else:
+            client_socket.send(status_code('404', 'Not Found'))
 
 
 if __name__ == "__main__":
