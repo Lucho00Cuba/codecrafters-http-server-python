@@ -12,7 +12,7 @@ def requests_path(data):
     return path
 
 def make_response(line):
-    return f"{line}".encode()
+    return line.encode()
 
 def main():
     # You can use print statements as follows for debugging, they'll be visible when running tests.
@@ -23,30 +23,33 @@ def main():
     print("Starting the server...")
     server_socket = socket.create_server(("localhost", PORT), reuse_port=True)
     # test for enable port
-    socket.create_connection(("localhost", PORT), timeout=5)
     print("Listen...")
-    server_socket.accept() # wait for client
 
-    client_socket, client_addr = server_socket.accept()
-
-    with client_socket:
-        print(f"Connected to {client_addr}")
-        data = b""
-        chunk = client_socket.recv(BUFFER)
-        data += chunk
-        path = requests_path(data)
-        if path == '/':
-            client_socket.send(make_response(f"HTTP/1.1 200 OK {CRLF}"))
-        elif path.startswith('/echo/'):
-            message = path.split("/echo/")[1]
-            client_socket.send(make_response(f"HTTP/1.1 200 OK {CRLF}"))
-            client_socket.send(make_response(f"Content-Type: text/plain{CRLF}"))
-            client_socket.send(make_response(f"Content-Length: {len(message)} {CRLF}"))
-            client_socket.send(make_response(f"{CRLF}"))
-            client_socket.send(make_response(f"{message}"))
-        else:
-            client_socket.send(make_response(f"HTTP/1.1 404 Not Found {CRLF}"))
-
+    while True:
+        socket.create_connection(("localhost", PORT), timeout=5)
+        server_socket.accept() # wait for client
+        client_socket, client_addr = server_socket.accept()
+        try:
+            with client_socket:
+                print(f"Connected to {client_addr}")
+                data = client_socket.recv(BUFFER)
+                path = requests_path(data)
+                if path == '/':
+                    print("requests /")
+                    client_socket.send(make_response(f"HTTP/1.1 200 OK {CRLF + CRLF}"))
+                elif path.startswith('/echo/'):
+                    print("requests /echo/")
+                    message = path.split("/echo/")[1]
+                    client_socket.send(make_response(f"HTTP/1.1 200 OK {CRLF}"))
+                    client_socket.send(make_response(f"Content-Type: text/plain{CRLF}"))
+                    client_socket.send(make_response(f"Content-Length: {len(message)} {CRLF}"))
+                    client_socket.send(make_response(f"{CRLF}"))
+                    client_socket.send(make_response(f"{message} {CRLF + CRLF}"))
+                else:
+                    print(f"requests {path}")
+                    client_socket.send(make_response(f"HTTP/1.1 404 Not Found {CRLF + CRLF}"))
+        except ConnectionError:
+            pass # nc probe
 
 if __name__ == "__main__":
     main()
