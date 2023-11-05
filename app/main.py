@@ -61,7 +61,7 @@ def handler_req(client_socket,client_addr, directory_path):
                 file_exists, content = getFileContent(directory_path, file_path)
                 if file_exists:
                     client_socket.send(make_response(f"HTTP/1.1 200 OK {CRLF}"))
-                    client_socket.send(make_response(f"Content-Type: octet-stream {CRLF}"))
+                    client_socket.send(make_response(f"Content-Type: application/octet-stream {CRLF}"))
                     client_socket.send(make_response(f"Content-Length: {len(content)} {CRLF}"))
                     client_socket.send(make_response(f"{CRLF}"))
                     client_socket.send(make_response(f"{content} {CRLF + CRLF}"))
